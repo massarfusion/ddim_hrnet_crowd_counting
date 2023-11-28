@@ -7,6 +7,7 @@ from torchvision.datasets import CIFAR10
 from datasets.celeba import CelebA
 from datasets.ffhq import FFHQ
 from datasets.lsun import LSUN
+from datasets.shtech import Shanghaitech
 from torch.utils.data import Subset
 import numpy as np
 
@@ -17,10 +18,10 @@ class Crop(object):
         self.x2 = x2
         self.y1 = y1
         self.y2 = y2
-
+    
     def __call__(self, img):
         return F.crop(img, self.x1, self.y1, self.x2 - self.x1, self.y2 - self.y1)
-
+    
     def __repr__(self):
         return self.__class__.__name__ + "(x1={}, x2={}, y1={}, y2={})".format(
             self.x1, self.x2, self.y1, self.y2
@@ -43,7 +44,7 @@ def get_dataset(args, config):
         test_transform = transforms.Compose(
             [transforms.Resize(config.data.image_size), transforms.ToTensor()]
         )
-
+    
     if config.data.dataset == "CIFAR10":
         dataset = CIFAR10(
             os.path.join(args.exp, "datasets", "cifar10"),
@@ -57,7 +58,7 @@ def get_dataset(args, config):
             download=True,
             transform=test_transform,
         )
-
+    
     elif config.data.dataset == "CELEBA":
         cx = 89
         cy = 121
@@ -92,7 +93,7 @@ def get_dataset(args, config):
                 ),
                 download=True,
             )
-
+        
         test_dataset = CelebA(
             root=os.path.join(args.exp, "datasets", "celeba"),
             split="test",
@@ -105,7 +106,26 @@ def get_dataset(args, config):
             ),
             download=True,
         )
-
+    
+    elif config.data.dataset == "SHHB" or config.data.dataset == "SHHA":
+        dataset = Shanghaitech(
+            root_path=config.data.directory,
+            mode="train",
+            transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+        )
+        
+        test_dataset = Shanghaitech(
+            root_path=config.data.directory,
+            mode="test",
+            transform=transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ])
+        )
+    
     elif config.data.dataset == "LSUN":
         train_folder = "{}_train".format(config.data.category)
         val_folder = "{}_val".format(config.data.category)
@@ -134,7 +154,7 @@ def get_dataset(args, config):
                     ]
                 ),
             )
-
+        
         test_dataset = LSUN(
             root=os.path.join(args.exp, "datasets", "lsun"),
             classes=[val_folder],
@@ -146,7 +166,7 @@ def get_dataset(args, config):
                 ]
             ),
         )
-
+    
     elif config.data.dataset == "FFHQ":
         if config.data.random_flip:
             dataset = FFHQ(
@@ -162,7 +182,7 @@ def get_dataset(args, config):
                 transform=transforms.ToTensor(),
                 resolution=config.data.image_size,
             )
-
+        
         num_items = len(dataset)
         indices = list(range(num_items))
         random_state = np.random.get_state()
@@ -171,13 +191,13 @@ def get_dataset(args, config):
         np.random.set_state(random_state)
         train_indices, test_indices = (
             indices[: int(num_items * 0.9)],
-            indices[int(num_items * 0.9) :],
+            indices[int(num_items * 0.9):],
         )
         test_dataset = Subset(dataset, test_indices)
         dataset = Subset(dataset, train_indices)
     else:
         dataset, test_dataset = None, None
-
+    
     return dataset, test_dataset
 
 
@@ -191,25 +211,25 @@ def data_transform(config, X):
         X = X / 256.0 * 255.0 + torch.rand_like(X) / 256.0
     if config.data.gaussian_dequantization:
         X = X + torch.randn_like(X) * 0.01
-
+    
     if config.data.rescaled:
         X = 2 * X - 1.0
     elif config.data.logit_transform:
         X = logit_transform(X)
-
+    
     if hasattr(config, "image_mean"):
         return X - config.image_mean.to(X.device)[None, ...]
-
+    
     return X
 
 
 def inverse_data_transform(config, X):
     if hasattr(config, "image_mean"):
         X = X + config.image_mean.to(X.device)[None, ...]
-
+    
     if config.data.logit_transform:
         X = torch.sigmoid(X)
     elif config.data.rescaled:
         X = (X + 1.0) / 2.0
-
+    
     return torch.clamp(X, 0.0, 1.0)

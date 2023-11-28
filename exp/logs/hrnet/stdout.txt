@@ -1,0 +1,4 @@
+INFO - main.py - 2023-11-28 23:39:54,978 - Using device: cuda
+INFO - main.py - 2023-11-28 23:39:54,981 - Writing log file to ./exp\logs\hrnet
+INFO - main.py - 2023-11-28 23:39:54,981 - Exp instance id = 9752
+INFO - main.py - 2023-11-28 23:39:54,981 - Exp comment = 

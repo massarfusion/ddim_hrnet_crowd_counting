@@ -8,7 +8,8 @@ import tqdm
 import torch
 import torch.utils.data as data
 
-from models.diffusion import Model
+from models.diffusion import Model  # Raw UNet
+from models.hrnn import Model as ModelAlt
 from models.ema import EMAHelper
 from functions import get_optimizer
 from functions.losses import loss_registry
@@ -97,6 +98,10 @@ class Diffusion(object):
 
     def train(self):
         args, config = self.args, self.config
+        
+        # model = Model(config)  # Original UNet
+        model = ModelAlt(config)  # HRnet introduced as 'UNet'
+        
         tb_logger = self.config.tb_logger
         dataset, test_dataset = get_dataset(args, config)
         train_loader = data.DataLoader(
@@ -105,10 +110,6 @@ class Diffusion(object):
             shuffle=True,
             num_workers=config.data.num_workers,
         )
-        model = Model(config)
-
-        model = model.to(self.device)
-        model = torch.nn.DataParallel(model)
 
         optimizer = get_optimizer(self.config, model.parameters())
 
@@ -119,7 +120,7 @@ class Diffusion(object):
             ema_helper = None
 
         start_epoch, step = 0, 0
-        if self.args.resume_training:
+        if self.args.resume_training:  # Restoring to saved scene, in logging directory we have a "ckpt.pth" just load
             states = torch.load(os.path.join(self.args.log_path, "ckpt.pth"))
             model.load_state_dict(states[0])
 
@@ -130,17 +131,18 @@ class Diffusion(object):
             if self.config.model.ema:
                 ema_helper.load_state_dict(states[4])
 
-        for epoch in range(start_epoch, self.config.training.n_epochs):
+        for epoch in range(start_epoch, self.config.training.n_epochs):  # "n_epochs" limits the epoch number, 10000 in default case
             data_start = time.time()
             data_time = 0
-            for i, (x, y) in enumerate(train_loader):
+            for i, (x, y) in enumerate(train_loader):  # iterate through one epoch
                 n = x.size(0)
                 data_time += time.time() - data_start
                 model.train()
                 step += 1
 
-                x = x.to(self.device)
-                x = data_transform(self.config, x)
+                x = x.to(self.device)# density map
+                y = y.to(self.device)# rgb image
+                # x = data_transform(self.config, x)
                 e = torch.randn_like(x)
                 b = self.betas
 
@@ -149,6 +151,9 @@ class Diffusion(object):
                     low=0, high=self.num_timesteps, size=(n // 2 + 1,)
                 ).to(self.device)
                 t = torch.cat([t, self.num_timesteps - t - 1], dim=0)[:n]
+                
+                x=[x, y]
+                
                 loss = loss_registry[config.model.type](model, x, t, e, b)
 
                 tb_logger.add_scalar("loss", loss, global_step=step)
@@ -190,8 +195,8 @@ class Diffusion(object):
                 data_start = time.time()
 
     def sample(self):
-        model = Model(self.config)
-
+        # model = Model(self.config)  # Original UNet
+        model = ModelAlt(self.config)  # HRnet introduced as 'UNet'
         if not self.args.use_pretrained:
             if getattr(self.config.sampling, "ckpt_id", None) is None:
                 states = torch.load(
