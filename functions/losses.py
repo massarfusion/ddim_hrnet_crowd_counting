@@ -18,9 +18,9 @@ def noise_estimation_loss(model,
     
     if stackUp:
         x = torch.cat([x, y], dim=1)
-        
     
-    output = model(x, t.float())  # The "UNet" takes only x and t, return a 1-channel map as prediction
+    t = t.to(x.device).float()
+    output = model(x.float(), t.float())  # The "UNet" takes only x and t, return a 1-channel map as prediction
     if keepdim:
         return (e - output).square().sum(dim=(1, 2, 3))
     else:

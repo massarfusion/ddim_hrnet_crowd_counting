@@ -4,11 +4,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torchvision.transforms as transforms
 import torch
+from models.hrnn import Model as ModelAlt
 
 
 if __name__ == "__main__":
     
     t= torch.tensor([ 65, 751,  15,], device='cpu')
+    x = torch.randn((3,4,768,1024))
+    
+    
     
     
     dataset = Shanghaitech(

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from .hr import HighResolutionTransformer, HighResolutionNet
 from .hr import UNet
+import torch.nn.functional as F
 
 
 def get_timestep_embedding(timesteps, embedding_dim):
@@ -88,7 +89,6 @@ class Model(nn.Module):
         in_channels = config.model.in_channels
         resolution = config.data.image_size  # tuple (H, W)
         
-        self
         
         # #--- HRT(Attn) ---
         # cwd_stack = os.getcwd()
@@ -146,6 +146,22 @@ class Model(nn.Module):
             torch.nn.Linear(self.temb_ch,
                             self.temb_ch),
         ])
+        
+        # output heads:
+        self.reg_head = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(480, 256, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='nearest'),
+            nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+        )
+        self.density_head = nn.Sequential(
+            nn.Conv2d(128, 1, 1, ),
+            nn.ReLU()
+        )
     
     def forward(self, x, t):
         """
@@ -159,6 +175,19 @@ class Model(nn.Module):
         temb = self.temb.dense[1](temb)
         
         y_list = self.backbone(x, temb)
+        _, _, h, w = y_list[0].size()
+        feat1 = y_list[0]
+        feat2 = F.interpolate(y_list[1], size=(h, w), mode="bilinear", align_corners=True)
+        feat3 = F.interpolate(y_list[2], size=(h, w), mode="bilinear", align_corners=True)
+        feat4 = F.interpolate(y_list[3], size=(h, w), mode="bilinear", align_corners=True)
+        
+        feats = torch.cat([feat1, feat2, feat3, feat4], 1)  # 480 channels
+        out_reg = self.reg_head(feats)
+        out_density=self.density_head(out_reg)
+        return out_density
+        # out_aux = F.interpolate(
+        #     out_aux, size=(x.size(2), x.size(3)), mode="bilinear", align_corners=True
+        # )
         
         '''HRNet v2 w32
         INPUT = torch.randn(2,3,768,1024)
@@ -167,5 +196,25 @@ class Model(nn.Module):
         2 feature map before classification head is shaped as torch.Size([2, 128, 48, 64])
         3 feature map before classification head is shaped as torch.Size([2, 256, 24, 32])
         '''
+        
+        ''' 输出头
+        x = self.backbone(x_)
+        _, _, h, w = x[0].size()
+
+        feat1 = x[0]
+        feat2 = F.interpolate(x[1], size=(h, w), mode="bilinear", align_corners=True)
+        feat3 = F.interpolate(x[2], size=(h, w), mode="bilinear", align_corners=True)
+        feat4 = F.interpolate(x[3], size=(h, w), mode="bilinear", align_corners=True)
+
+        feats = torch.cat([feat1, feat2, feat3, feat4], 1)
+        out_aux = self.aux_head(feats)
+
+        out_aux = F.interpolate(
+                out_aux, size=(x_.size(2), x_.size(3)), mode="bilinear", align_corners=True
+            )
+
+        '''
+        
+        
         
         assert False, "Not implemented  out-way processor"

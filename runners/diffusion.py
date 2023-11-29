@@ -69,7 +69,11 @@ class Diffusion(object):
                 if torch.cuda.is_available()
                 else torch.device("cpu")
             )
+        # 转移到Linux机器上记得改回来
+        
         self.device = device
+        # self.device = torch.device("cpu"); print("转移到Linux机器上记得改回来, Line73 runners/diffusion.py")
+        
 
         self.model_var_type = config.model.var_type
         betas = get_beta_schedule(
@@ -84,7 +88,7 @@ class Diffusion(object):
         alphas = 1.0 - betas
         alphas_cumprod = alphas.cumprod(dim=0)
         alphas_cumprod_prev = torch.cat(
-            [torch.ones(1).to(device), alphas_cumprod[:-1]], dim=0
+            [torch.ones(1).to(self.device), alphas_cumprod[:-1]], dim=0
         )
         posterior_variance = (
             betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
@@ -101,6 +105,7 @@ class Diffusion(object):
         
         # model = Model(config)  # Original UNet
         model = ModelAlt(config)  # HRnet introduced as 'UNet'
+        model.to(self.device)
         
         tb_logger = self.config.tb_logger
         dataset, test_dataset = get_dataset(args, config)
@@ -140,9 +145,9 @@ class Diffusion(object):
                 model.train()
                 step += 1
 
-                x = x.to(self.device)# density map
-                y = y.to(self.device)# rgb image
-                # x = data_transform(self.config, x)
+                x = x.to(self.device)  # density map
+                y = y.to(self.device)  # rgb image
+                x = data_transform(self.config, x)
                 e = torch.randn_like(x)
                 b = self.betas
 

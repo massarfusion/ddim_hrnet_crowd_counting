@@ -2,8 +2,10 @@ data:
     dataset: "SHHB"
     directory : "DATA/shanghairaw/ShanghaiTech/part_B"
     # Down below fields are not used in our case
-    image_size: 256
-    channels: 3
+    image_size1: 768
+    image_size2: 1024
+    channels: 1
+    channels_rgb: 3
     logit_transform: false
     uniform_dequantization: false
     gaussian_dequantization: false
@@ -34,10 +36,10 @@ diffusion:
     num_diffusion_timesteps: 1000
 
 training:
-    batch_size: 8
-    n_epochs: 10000
+    batch_size: 16
+    n_epochs: 4000
     n_iters: 5000000
-    snapshot_freq: 5000
+    snapshot_freq: 20000
     validation_freq: 2000
 
 sampling:

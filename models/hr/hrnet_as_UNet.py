@@ -44,6 +44,8 @@ class TimestepEmbedSequential(nn.Sequential):
                 x = layer(x, emb)
             elif isinstance(layer, Bottleneck):
                 x = layer(x, emb)
+            elif isinstance(layer, HighResolutionModule):
+                x = layer(x, emb)
             else:
                 x = layer(x)
         return x
@@ -136,7 +138,7 @@ class HighResolutionModule(nn.Module):
             layers.append(
                 block(self.num_inchannels[branch_index], num_channels[branch_index], temb_channels = temb_channels)
             )
-        return nn.Sequential(*layers)
+        return TimestepEmbedSequential(*layers)
 
     def _make_branches(self, num_branches, block, num_blocks, num_channels, temb_channels=256):
         branches = []
@@ -447,7 +449,7 @@ class HighResolutionNet(nn.Module):
         for i in range(1, blocks):
             layers.append(block(inplanes, planes, temb_channels = temb_channels))
 
-        return nn.Sequential(*layers)
+        return TimestepEmbedSequential(*layers)
 
     def _make_stage(self, layer_config, num_inchannels, multi_scale_output=True, temb_channels=256):
         num_modules = layer_config["NUM_MODULES"]
@@ -477,7 +479,7 @@ class HighResolutionNet(nn.Module):
             )
             num_inchannels = modules[-1].get_num_inchannels()
 
-        return nn.Sequential(*modules), num_inchannels
+        return TimestepEmbedSequential(*modules), num_inchannels
 
     def forward(self, x, temb):
         if self.play_as_UNet:

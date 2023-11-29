@@ -64,14 +64,14 @@ class BasicBlock(nn.Module):
         self.stride = stride
         
         # Timestep info injection, use a FiLM-like conditioning mechanism when use_scale_shift_norm==True
-        use_scale_shift_norm = True
+        self.use_scale_shift_norm = True
         self.out_channels = planes * self.expansion
         self.emb_channels = temb_channels
         self.emb_layers = nn.Sequential(
             nn.SiLU(),
             nn.Linear(
                 self.emb_channels,
-                2 * self.out_channels if use_scale_shift_norm else self.out_channels,
+                2 * self.out_channels if self.use_scale_shift_norm else self.out_channels,
             ),
         )
         self.out_layers = nn.Sequential(
@@ -101,7 +101,7 @@ class BasicBlock(nn.Module):
         out = self.bn2(out)
 
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(residual)
         
         # Injecting timestep embeddings
         emb_out = self.emb_layers(temb).type(out.dtype)

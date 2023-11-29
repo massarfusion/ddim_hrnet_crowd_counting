@@ -207,6 +207,7 @@ def logit_transform(image, lam=1e-6):
 
 
 def data_transform(config, X):
+    # 和inverse_data_transform“配合使用” 负责训练阶段把目标图像的取值转移到[-1,1]
     if config.data.uniform_dequantization:
         X = X / 256.0 * 255.0 + torch.rand_like(X) / 256.0
     if config.data.gaussian_dequantization:
@@ -224,6 +225,7 @@ def data_transform(config, X):
 
 
 def inverse_data_transform(config, X):
+    # 和data_transform“配合使用” 负责训练阶段把目标图像的取值转移到[0,1]
     if hasattr(config, "image_mean"):
         X = X + config.image_mean.to(X.device)[None, ...]
     

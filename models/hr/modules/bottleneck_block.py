@@ -67,16 +67,21 @@ class Bottleneck(nn.Module):
             nn.SiLU(),
             nn.Dropout(0.0),
             zero_module(
-                nn.Conv2d(self.out_channels, self.out_channels, 3,stride=1, padding=1,)
+                nn.Conv2d(self.out_channels, self.out_channels, 3, stride=1, padding=1,)
             ),
         )
         
-        if self.out_channels == inplanes:
+        if self.downsample is not None:
             self.skip_connection = nn.Identity()
         else:
-            self.skip_connection = nn.Conv2d(
-                inplanes, self.out_channels, 1, padding=1
-            )
+            self.skip_connection = nn.Conv2d(inplanes, self.out_channels, kernel_size=1,stride=1,padding=0)
+        
+        # if self.out_channels == inplanes:
+        #     self.skip_connection = nn.Identity()
+        # else:
+        #     self.skip_connection = nn.Conv2d(
+        #         inplanes, self.inplanes, 1, padding=1
+        #     )
 
     def forward(self, x, temb=None):
         residual = self.skip_connection(x)
@@ -93,7 +98,7 @@ class Bottleneck(nn.Module):
         out = self.bn3(out)
 
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(residual)
         
         # Injecting timestep embeddings
         emb_out = self.emb_layers(temb).type(out.dtype)
